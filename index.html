@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MatePráctica · Áreas, conteo y conjuntos</title>
+<meta name="theme-color" content="#0d1117">
+<style>
+:root{--bg: #0d1117;--panel: #161b22;--border:#30363d;--tx: #e6edf3;--sub: #8b949e;--ac: #8b5cf6;--ok:#2f9e6e;--err:#d64545;--warn:#d29922}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx);padding:14px;max-width:860px;margin:0 auto;font-size:15px}
+header{display:flex;align-items:center;gap:10px;padding:4px 0 14px;flex-wrap:wrap}
+h1{font-size:19px}
+.sub{font-size:12px;color:var(--sub);flex:1}
+.ico{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--ac),#6d28d9);display:flex;align-items:center;justify-content:center;font-size:18px}
+.barra{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:9px 13px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--sub);font:inherit;font-size:13px;cursor:pointer}
+.tab.on{color:#fff;background:linear-gradient(135deg,var(--ac),#6d28d9);border-color:transparent}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;margin-bottom:4px}
+.card .d{font-size:13px;color:var(--sub);margin-bottom:12px;line-height:1.5}
+.formula{font-size:13px;background:#0d1117;border-left:3px solid var(--ac);border-radius:8px;padding:9px 12px;margin:10px 0;color:var(--tx);font-family:ui-monospace,monospace}
+label{display:block;font-size:13px;color:var(--sub);margin:12px 0 5px}
+input[type=number]{width:100%;padding:13px;border-radius:12px;border:1px solid var(--border);background:#ffffff;color:#111111;font:inherit;font-size:16px}
+input::placeholder{color:#6e7781}
+.res{font-size:14px;background:#0d1117;border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:14px;line-height:1.8}
+.res b.ok{color:var(--ok)}.res b.er{color:var(--err)}.res b.wa{color:var(--warn)}
+.paso{font-size:13px;color:var(--sub);margin-top:4px}
+.paso b{color:var(--tx)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+th,td{border:1px solid var(--border);padding:8px;text-align:right;white-space:nowrap}
+th{background:#0d1117;color:var(--sub);font-size:12px}
+td.l,th.l{text-align:left;white-space:normal}
+.btn{padding:11px 18px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--ac),#6d28d9);color:#fff;font:inherit;font-size:14.5px;cursor:pointer}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>div{flex:1;min-width:100px}
+.mini{padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
+</style>
+<style id="lf-tema">html,body{background:#0d1117 !important;color:#e6edf3 !important;font-family:ui-monospace,Menlo,Consolas,monospace !important;font-size:19px !important}</style></head>
+<body>
+<header>
+  <div class="ico">📐</div>
+  <div><h1>MatePráctica</h1><span class="sub">Áreas · conteo · conjuntos — con fórmulas y pasos para verificar</span></div>
+</header>
+<nav class="barra" id="tabs"></nav>
+<main id="contenido"></main>
+
+<script>
+const $ = id => document.getElementById(id);
+const n2 = id => { const e = $(id); if (!e) return 0; const v = parseFloat(String(e.value).replace(/\./g,'').replace(',','.')); return isNaN(v) ? 0 : v; };
+const f2 = n => (Math.round(n * 100) / 100).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+const fact = n => { n = Math.floor(n); if (n < 0) return NaN; let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; };
+const gcd = (a, b) => { a = Math.abs(Math.round(a)); b = Math.abs(Math.round(b)); while (b) { [a, b] = [b, a % b]; } return a; };
+const perm = (n, k) => fact(n) / fact(n - k);
+const comb = (n, k) => fact(n) / (fact(k) * fact(n - k));
+let TAB = 'figuras';
+
+/* ================= barra ================= */
+const MODS = [
+  { id: 'figuras', t: 'Áreas y perímetros' },
+  { id: 'cuadricula', t: 'Diagonal en cuadrícula' },
+  { id: 'conjuntos', t: 'Conjuntos (Venn)' },
+  { id: 'conteo', t: 'Conteo y números' },
+  { id: 'circular', t: 'Mesa circular' },
+  { id: 'ternas', t: 'Ternas consecutivas' },
+  { id: 'verif', t: '✅ Verificador' }
+];
+function pintarBarra(){
+  $('tabs').innerHTML = MODS.map(m => '<button class="tab' + (TAB === m.id ? ' on' : '') + '" data-t="' + m.id + '">' + m.t + '</button>').join('');
+  document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TAB = b.dataset.t; pintar(); });
+}
+function pintar(){ pintarBarra(); VISTAS[TAB](); }
+
+function caja(titulo, desc, cuerpo, idRes){
+  return '<div class="card"><h2>' + titulo + '</h2><div class="d">' + desc + '</div>' + cuerpo +
+    '<div class="res" id="' + idRes + '" style="display:none"></div></div>';
+}
+function mostrar(id, html){ const e = $(id); if (e) { e.innerHTML = html; e.style.display = 'block'; } }
+
+/* ================= 1 · figuras ================= */
+function vFiguras(){
+  $('contenido').innerHTML =
+  caja('Triángulo (3 lados · Herón)', 'Ingresá los tres lados. Si es isósceles, dos lados son iguales. Valida que cada lado sea menor que la suma de los otros dos.',
+    '<div class="row"><div><label>Lado a</label><input type="number" id="t_a"></div><div><label>Lado b</label><input type="number" id="t_b"></div><div><label>Lado c</label><input type="number" id="t_c"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bT">Calcular</button></div>', 'rT') +
+  caja('Triángulo (base y altura)', 'Área con la medida de la base y la altura correspondiente.',
+    '<div class="row"><div><label>Base</label><input type="number" id="tb_base"></div><div><label>Altura</label><input type="number" id="tb_h"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bTb">Calcular</button></div>', 'rTb') +
+  caja('Rectángulo / cuadrado', 'Área y perímetro.',
+    '<div class="row"><div><label>Base</label><input type="number" id="r_b"></div><div><label>Altura</label><input type="number" id="r_h"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bR">Calcular</button></div>', 'rR') +
+  caja('Trapecio', 'Área con bases mayor y menor, y altura.',
+    '<div class="row"><div><label>Base mayor (B)</label><input type="number" id="tr_B"></div><div><label>Base menor (b)</label><input type="number" id="tr_b"></div><div><label>Altura (h)</label><input type="number" id="tr_h"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bTr">Calcular</button></div>', 'rTr') +
+  caja('Círculo / semicírculo', 'Área y perímetro (el perímetro del semicírculo incluye el diámetro).',
+    '<div class="row"><div><label>Radio (r)</label><input type="number" id="c_r"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bC">Calcular círculo</button> <button class="btn" id="bCs" style="margin-left:8px">Semicírculo</button></div>', 'rC') +
+  caja('Anillo semicircular (media corona)', 'Como el ejercicio del semicírculo rosa: radio exterior R, radio interior r. El perímetro suma ambos semicírculos más los dos segmentos rectos (R−r cada uno).',
+    '<div class="row"><div><label>Radio exterior (R)</label><input type="number" id="an_R"></div><div><label>Radio interior (r)</label><input type="number" id="an_r"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bAn">Calcular</button></div>', 'rAn') +
+  caja('Figura compuesta: rectángulos que se suman', 'Descomponé la figura en rectángulos. Agregá cada uno con su ancho y alto (ej.: la figura verde = rectángulo izquierdo + rectángulo derecho).',
+    '<div id="rects"></div>' +
+    '<div style="margin-top:10px"><button class="btn sec mini" id="bAddRect">＋ Rectángulo</button> <button class="btn" id="bFr" style="margin-left:8px">Calcular área total</button></div>', 'rFr') +
+  caja('Figura compuesta: gran rectángulo menos recorte', 'Cuando la figura es un rectángulo grande con un rectángulo blanco/quitado (ej.: el triángulo amarillo con muesca).',
+    '<div class="row"><div><label>Ancho total</label><input type="number" id="g_W"></div><div><label>Alto total</label><input type="number" id="g_H"></div></div>' +
+    '<div class="row" style="margin-top:4px"><div><label>Ancho quitado</label><input type="number" id="g_w"></div><div><label>Alto quitado</label><input type="number" id="g_h"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bG">Calcular</button></div>', 'rG');
+
+  $('bT').onclick = () => {
+    const a = n2('t_a'), b = n2('t_b'), c = n2('t_c');
+    if (a <= 0 || b <= 0 || c <= 0) return mostrar('rT', 'Ingresá los tres lados (mayores que 0).');
+    if (a >= b + c || b >= a + c || c >= a + b) return mostrar('rT', '<b class="er">No forman un triángulo:</b> cada lado debe ser menor que la suma de los otros dos.');
+    const s = (a + b + c) / 2;
+    const area = Math.sqrt(s * (s - a) * (s - b) * (s - c));
+    let h = '';
+    if (a === b && b !== c) h = 'Es isósceles: altura sobre la base c = √(a² − (c/2)²) = ' + f2(Math.sqrt(a * a - (c / 2) * (c / 2)));
+    if (b === c && c !== a) h = 'Es isósceles: altura sobre la base a = √(b² − (a/2)²) = ' + f2(Math.sqrt(b * b - (a / 2) * (a / 2)));
+    if (a === c && c !== b) h = 'Es isósceles: altura sobre la base b = √(a² − (b/2)²) = ' + f2(Math.sqrt(a * a - (b / 2) * (b / 2)));
+    mostrar('rT', '<div class="formula">s = (a+b+c)/2 = ' + f2(s) + ' → Área = √[s(s−a)(s−b)(s−c)]</div>' +
+      'Perímetro: <b>' + f2(a + b + c) + '</b><br>Área: <b class="ok">' + f2(area) + '</b>' + (h ? '<div class="paso">' + h + '</div>' : ''));
+  };
+  $('bTb').onclick = () => mostrar('rTb', 'Área = base × altura / 2 = <b class="ok">' + f2(n2('tb_base') * n2('tb_h') / 2) + '</b>');
+  $('bR').onclick = () => mostrar('rR', 'Área = <b class="ok">' + f2(n2('r_b') * n2('r_h')) + '</b> · Perímetro = <b>' + f2(2 * (n2('r_b') + n2('r_h'))) + '</b>');
+  $('bTr').onclick = () => mostrar('rTr', '<div class="formula">Área = (B + b) × h / 2</div>Área = <b class="ok">' + f2((n2('tr_B') + n2('tr_b')) * n2('tr_h') / 2) + '</b>');
+  $('bC').onclick = () => {
+    const r = n2('c_r');
+    mostrar('rC', 'Área = π r² = <b class="ok">' + f2(Math.PI * r * r) + '</b> · Perímetro = 2πr = <b>' + f2(2 * Math.PI * r) + '</b>');
+  };
+  $('bCs').onclick = () => {
+    const r = n2('c_r');
+    mostrar('rC', '<div class="formula">Área = π r² / 2 · Perímetro = πr + 2r (incluye el diámetro)</div>' +
+      'Área = <b class="ok">' + f2(Math.PI * r * r / 2) + '</b> · Perímetro = <b>' + f2(Math.PI * r + 2 * r) + '</b>');
+  };
+  $('bAn').onclick = () => {
+    const R = n2('an_R'), r = n2('an_r');
+    if (R <= r) return mostrar('rAn', 'El radio exterior debe ser mayor que el interior.');
+    mostrar('rAn', '<div class="formula">Perímetro = πR + πr + 2(R − r) · Área = π(R² − r²) / 2</div>' +
+      'Perímetro = <b class="ok">' + f2(Math.PI * R + Math.PI * r + 2 * (R - r)) + '</b> (semicirc. exterior ' + f2(Math.PI * R) + ' + interior ' + f2(Math.PI * r) + ' + 2×' + f2(R - r) + ')<br>' +
+      'Área = <b class="ok">' + f2(Math.PI * (R * R - r * r) / 2) + '</b>');
+  };
+  let nRect = 0;
+  const addRect = () => {
+    nRect++;
+    const d = document.createElement('div');
+    d.className = 'row'; d.style.marginTop = '6px';
+    d.innerHTML = '<div><label>Ancho</label><input type="number" class="rw"></div><div><label>Alto</label><input type="number" class="rh"></div>';
+    $('rects').appendChild(d);
+  };
+  $('bAddRect').onclick = addRect; addRect(); addRect();
+  $('bFr').onclick = () => {
+    let total = 0, det = [];
+    document.querySelectorAll('#rects .row').forEach(r => {
+      const w = parseFloat(r.querySelector('.rw').value) || 0, h = parseFloat(r.querySelector('.rh').value) || 0;
+      if (w > 0 && h > 0) { total += w * h; det.push(f2(w) + '×' + f2(h) + ' = ' + f2(w * h)); }
+    });
+    mostrar('rFr', det.length ? det.join('<br>') + '<br>Área total = <b class="ok">' + f2(total) + '</b>' : 'Agregá al menos un rectángulo con ancho y alto.');
+  };
+  $('bG').onclick = () => {
+    const W = n2('g_W'), H = n2('g_H'), w = n2('g_w'), h = n2('g_h');
+    mostrar('rG', '<div class="formula">Área = (ancho total × alto total) − (ancho quitado × alto quitado)</div>' +
+      f2(W) + '×' + f2(H) + ' − ' + f2(w) + '×' + f2(h) + ' = <b class="ok">' + f2(W * H - w * h) + '</b>');
+  };
+}
+
+/* ================= 2 · diagonal en cuadrícula ================= */
+function vCuadricula(){
+  $('contenido').innerHTML =
+  caja('¿A cuántos cuadraditos corta la diagonal?', 'En una cuadrícula de a×b cuadraditos, la cantidad de cuadraditos que atraviesa la diagonal es <b>a + b − mcd(a, b)</b>, donde mcd es el máximo común divisor. Solo cuenta los que corta por dentro (pasar exactamente por un vértice no abre un cuadradito nuevo).',
+    '<div class="row"><div><label>Cuadraditos de ancho (a)</label><input type="number" id="g_a"></div><div><label>Cuadraditos de alto (b)</label><input type="number" id="g_b"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bGcd">Calcular</button></div>', 'rGcd');
+  $('bGcd').onclick = () => {
+    const a = Math.round(n2('g_a')), b = Math.round(n2('g_b'));
+    if (a <= 0 || b <= 0) return mostrar('rGcd', 'Ingresá enteros positivos.');
+    const m = gcd(a, b);
+    const pasos = [];
+    // desglose pedagógico: sin cortes por vértices sería a+b-1; cada vértice interior ahorra 1
+    pasos.push('Sin vértices internos sería a + b − 1 = ' + (a + b - 1));
+    pasos.push('La diagonal pasa por <b>' + (m - 1) + '</b> vértices internos (mcd − 1 = ' + m + ' − 1), y en cada uno NO abre un cuadradito nuevo');
+    mostrar('rGcd', '<div class="formula">mcd(' + a + ', ' + b + ') = ' + m + ' → cuadraditos = a + b − mcd = ' + a + ' + ' + b + ' − ' + m + '</div>' +
+      pasos.join('<br>') + '<br>Respuesta: <b class="ok">' + (a + b - m) + ' cuadraditos</b>');
+  };
+}
+
+/* ================= 3 · conjuntos ================= */
+function vConjuntos(){
+  $('contenido').innerHTML =
+  caja('Inclusión-exclusión con 3 conjuntos', 'Volcá los datos de la encuesta: total encuestados, cuántos gustan de cada juguete, de cada par y de los tres. La app calcula las regiones del diagrama de Venn (solamente A, solamente B, etc.) y cuántos quedan fuera.',
+    '<div class="row"><div><label>Total encuestados (N)</label><input type="number" id="v_N"></div><div><label>Solo A (|A|)</label><input type="number" id="v_a"></div><div><label>Solo B (|B|)</label><input type="number" id="v_b"></div><div><label>Solo C (|C|)</label><input type="number" id="v_c"></div></div>' +
+    '<div class="row" style="margin-top:4px"><div><label>A y B (|A∩B|)</label><input type="number" id="v_ab"></div><div><label>B y C (|B∩C|)</label><input type="number" id="v_bc"></div><div><label>A y C (|A∩C|)</label><input type="number" id="v_ac"></div><div><label>Los tres (|A∩B∩C|)</label><input type="number" id="v_abc"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bVenn">Calcular regiones</button></div>', 'rVenn');
+  $('bVenn').onclick = () => {
+    const N = n2('v_N'), a = n2('v_a'), b = n2('v_b'), c = n2('v_c');
+    const ab = n2('v_ab'), bc = n2('v_bc'), ac = n2('v_ac'), abc = n2('v_abc');
+    const soloA = a - ab - ac + abc, soloB = b - ab - bc + abc, soloC = c - ac - bc + abc;
+    const soloAB = ab - abc, soloBC = bc - abc, soloAC = ac - abc;
+    const alMenosUno = a + b + c - ab - ac - bc + abc;
+    const ninguno = N - alMenosUno;
+    const chk = soloA < 0 || soloB < 0 || soloC < 0 || soloAB < 0 || soloBC < 0 || soloAC < 0 || ninguno < 0;
+    mostrar('rVenn',
+      '<div class="formula">Solo A = |A| − |A∩B| − |A∩C| + |A∩B∩C| = ' + f2(a) + ' − ' + f2(ab) + ' − ' + f2(ac) + ' + ' + f2(abc) + ' = <b>' + f2(soloA) + '</b></div>' +
+      '<table><tr><th class="l">Región</th><th>Cantidad</th></tr>' +
+      '<tr><td class="l">Solamente A</td><td><b>' + f2(soloA) + '</b></td></tr>' +
+      '<tr><td class="l">Solamente B</td><td><b>' + f2(soloB) + '</b></td></tr>' +
+      '<tr><td class="l">Solamente C</td><td><b>' + f2(soloC) + '</b></td></tr>' +
+      '<tr><td class="l">A y B solamente (sin C)</td><td>' + f2(soloAB) + '</td></tr>' +
+      '<tr><td class="l">B y C solamente</td><td>' + f2(soloBC) + '</td></tr>' +
+      '<tr><td class="l">A y C solamente</td><td>' + f2(soloAC) + '</td></tr>' +
+      '<tr><td class="l">Los tres (A∩B∩C)</td><td>' + f2(abc) + '</td></tr>' +
+      '<tr><td class="l">Al menos uno (unión)</td><td>' + f2(alMenosUno) + '</td></tr>' +
+      '<tr class="tot"><td class="l">Ninguno (otro juguete)</td><td><b class="' + (ninguno < 0 ? 'er' : 'ok') + '">' + f2(ninguno) + '</b></td></tr></table>' +
+      (chk ? '<div class="paso"><b class="er">Algunas regiones dieron negativas: revisá los datos ingresados</b> (los pares deben incluir a los que gustan de los tres).</div>' : ''));
+  };
+}
+
+/* ================= 4 · conteo ================= */
+function vConteo(){
+  $('contenido').innerHTML =
+  caja('Factorial, permutaciones y combinaciones', 'n! = n×(n−1)×…×1 · V(n,k) = n!/(n−k)! (importa el orden) · C(n,k) = n!/[k!(n−k)!] (no importa el orden).',
+    '<div class="row"><div><label>n</label><input type="number" id="co_n"></div><div><label>k (opcional)</label><input type="number" id="co_k"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bCo">Calcular</button></div>', 'rCo') +
+  caja('Números de k cifras con dígitos disponibles', '¿Cuántos números de k cifras con los n dígitos 0…9? Ojo: la <b>primera cifra no puede ser 0</b>. Con repetición: 9×10^(k−1). Sin repetición: 9×V(9,k−1). Si además la última cifra está fija (ej.: termina en 1, sin repetir): primera cifra 8 opciones (ni 0 ni 1) y el medio V(8,k−2) → 8×V(8,k−2).',
+    '<div class="row"><div><label>Dígitos disponibles (n)</label><input type="number" id="nu_n"></div><div><label>Cifras del número (k)</label><input type="number" id="nu_k"></div></div>' +
+    '<div class="row" style="margin-top:4px"><div><label>Última cifra fija (0 = no)</label><input type="number" id="nu_f" value="0"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bNu">Calcular</button></div>', 'rNu');
+  $('bCo').onclick = () => {
+    const n = Math.round(n2('co_n')), k = Math.round(n2('co_k'));
+    let h = 'n! = <b class="ok">' + f2(fact(n)) + '</b>';
+    if (k > 0 && k <= n) h += '<br>V(' + n + ',' + k + ') = n!/(n−k)! = <b class="ok">' + f2(perm(n, k)) + '</b><br>C(' + n + ',' + k + ') = n!/[k!(n−k)!] = <b class="ok">' + f2(comb(n, k)) + '</b>';
+    else if (k > n) h += '<br><span class="paso">k > n: las variaciones/combinaciones no existen (no alcanzan los elementos).</span>';
+    mostrar('rCo', h);
+  };
+  $('bNu').onclick = () => {
+    const n = Math.round(n2('nu_n')), k = Math.round(n2('nu_k')), fij = Math.round(n2('nu_f'));
+    if (k <= 0 || n <= 0) return mostrar('rNu', 'Ingresá n y k positivos.');
+    let h = '';
+    if (n === 10) {
+      h = 'Con repetición: 9×10^' + (k - 1) + ' = <b class="ok">' + f2(9 * Math.pow(10, k - 1)) + '</b>';
+      if (k <= 10) h += '<br>Sin repetición: 9×V(9,' + (k - 1) + ') = 9×' + f2(perm(9, k - 1)) + ' = <b class="ok">' + f2(9 * perm(9, k - 1)) + '</b>';
+      if (fij > 0 && k >= 2 && k <= 10) h += '<br>Termina en ' + fij + ' (sin repetir): 8×V(8,' + (k - 2) + ') = 8×' + f2(perm(8, k - 2)) + ' = <b class="ok">' + f2(8 * perm(8, k - 2)) + '</b>';
+    } else {
+      h = '<span class="paso">Fórmula pensada para los 10 dígitos 0–9. Con un subconjunto de dígitos sin el 0: sin repetición = V(n,k); con repetición = nᵏ.</span>';
+      h += '<br>Con repetición: ' + n + '^' + k + ' = <b class="ok">' + f2(Math.pow(n, k)) + '</b>';
+      if (k <= n) h += '<br>Sin repetición: V(' + n + ',' + k + ') = <b class="ok">' + f2(perm(n, k)) + '</b>';
+    }
+    mostrar('rNu', '<div class="formula">Primera cifra ≠ 0 (si no, sería un número de k−1 cifras).</div>' + h);
+  };
+}
+
+/* ================= 5 · mesa circular ================= */
+function vCircular(){
+  $('contenido').innerHTML =
+  caja('Sentados alrededor de una mesa', 'En círculo las rotaciones no cuentan como distintas: (n−1)!. Si k personas deben estar juntas, se tratan como un bloque: quedan (n−k) elementos en círculo → (n−k)! × k! (las k personas permutan entre sí).',
+    '<div class="row"><div><label>Personas (n)</label><input type="number" id="mc_n"></div><div><label>Bloque que quiere estar junto (k, 0 = ninguno)</label><input type="number" id="mc_k" value="0"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bMc">Calcular</button></div>', 'rMc');
+  $('bMc').onclick = () => {
+    const n = Math.round(n2('mc_n')), k = Math.round(n2('mc_k'));
+    if (n < 1) return mostrar('rMc', 'Ingresá n.');
+    let h = 'Libre: (' + n + '−1)! = <b class="ok">' + f2(fact(n - 1)) + '</b>';
+    if (k >= 2 && k <= n) h += '<br>Con bloque de ' + k + ' juntas: (' + n + '−' + k + ')! × ' + k + '! = ' + f2(fact(n - k)) + ' × ' + f2(fact(k)) + ' = <b class="ok">' + f2(fact(n - k) * fact(k)) + '</b>';
+    else if (k > n) h += '<br><span class="paso">k no puede superar a n.</span>';
+    mostrar('rMc', h);
+  };
+}
+
+/* ================= 6 · ternas ================= */
+function vTernas(){
+  $('contenido').innerHTML =
+  caja('¿La suma de 3 consecutivos es siempre múltiplo de 3?', 'Sea n el primero: n + (n+1) + (n+2) = 3n + 3 = 3(n+1). Como queda factorizado con 3, <b>siempre es múltiplo de 3</b>, para cualquier terna de naturales consecutivos. Probá con el verificador:',
+    '<div class="row"><div><label>Primer número de la terna (n)</label><input type="number" id="te_n" value="1"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" id="bTe">Verificar</button></div>', 'rTe');
+  $('bTe').onclick = () => {
+    const n = Math.round(n2('te_n'));
+    const s = n + (n + 1) + (n + 2);
+    mostrar('rTe', '<div class="formula">' + n + ' + ' + (n + 1) + ' + ' + (n + 2) + ' = ' + s + ' = 3 × ' + (s / 3) + '</div>' +
+      s % 3 === 0 ? 'Sí: <b class="ok">' + s + ' es múltiplo de 3</b> (3 × ' + (s / 3) + '). Vale para cualquier n, porque n + (n+1) + (n+2) = 3(n+1).' : '<b class="er">Algo salió mal</b>');
+  };
+}
+
+
+/* ================= verificador ================= */
+const TIPOS = [
+  { id: 'tri_a', t: 'Triángulo (Herón) — ÁREA', campos: ['Lado a','Lado b','Lado c'],
+    calc: v => { const s = (v[0]+v[1]+v[2])/2; return Math.sqrt(s*(s-v[0])*(s-v[1])*(s-v[2])); },
+    pasos: v => { const s = (v[0]+v[1]+v[2])/2; return 's = ' + f2(s) + ' → √[s(s−a)(s−b)(s−c)]'; } },
+  { id: 'tri_p', t: 'Triángulo — PERÍMETRO', campos: ['Lado a','Lado b','Lado c'],
+    calc: v => v[0]+v[1]+v[2], pasos: v => 'a + b + c' },
+  { id: 'ani_p', t: 'Anillo semicircular — PERÍMETRO', campos: ['Radio exterior R','Radio interior r'],
+    calc: v => Math.PI*v[0] + Math.PI*v[1] + 2*(v[0]-v[1]),
+    pasos: v => 'πR + πr + 2(R−r) = ' + f2(Math.PI*v[0]) + ' + ' + f2(Math.PI*v[1]) + ' + ' + f2(2*(v[0]-v[1])) },
+  { id: 'ani_a', t: 'Anillo semicircular — ÁREA', campos: ['Radio exterior R','Radio interior r'],
+    calc: v => Math.PI*(v[0]*v[0]-v[1]*v[1])/2, pasos: v => 'π(R² − r²) / 2' },
+  { id: 'grid', t: 'Diagonal en cuadrícula a×b', campos: ['Ancho a','Alto b'],
+    calc: v => v[0]+v[1]-gcd(v[0],v[1]), pasos: v => 'a + b − mcd(a,b) = ' + v[0] + ' + ' + v[1] + ' − ' + gcd(v[0],v[1]) },
+  { id: 'vn_soloA', t: 'Venn — SOLO A', campos: ['Total N','|A|','|B|','|C|','|A∩B|','|B∩C|','|A∩C|','|A∩B∩C|'],
+    calc: v => v[1]-v[4]-v[6]+v[7], pasos: v => '|A| − |A∩B| − |A∩C| + |A∩B∩C|' },
+  { id: 'vn_soloB', t: 'Venn — SOLO B', campos: ['Total N','|A|','|B|','|C|','|A∩B|','|B∩C|','|A∩C|','|A∩B∩C|'],
+    calc: v => v[2]-v[4]-v[5]+v[7], pasos: v => '|B| − |A∩B| − |B∩C| + |A∩B∩C|' },
+  { id: 'vn_soloC', t: 'Venn — SOLO C', campos: ['Total N','|A|','|B|','|C|','|A∩B|','|B∩C|','|A∩C|','|A∩B∩C|'],
+    calc: v => v[3]-v[5]-v[6]+v[7], pasos: v => '|C| − |B∩C| − |A∩C| + |A∩B∩C|' },
+  { id: 'vn_ning', t: 'Venn — NINGUNO (otro juguete)', campos: ['Total N','|A|','|B|','|C|','|A∩B|','|B∩C|','|A∩C|','|A∩B∩C|'],
+    calc: v => v[0]-(v[1]+v[2]+v[3]-v[4]-v[5]-v[6]+v[7]),
+    pasos: v => 'N − (|A|+|B|+|C| − pares + triple)' },
+  { id: 'nu_rep', t: 'Números de k cifras (0–9) — CON repetición', campos: ['Cifras k'],
+    calc: v => 9 * Math.pow(10, v[0] - 1), pasos: v => '9×10^(k−1) = 9×10^' + (v[0]-1) },
+  { id: 'nu_nrep', t: 'Números de k cifras (0–9) — SIN repetición', campos: ['Cifras k'],
+    calc: v => 9 * perm(9, v[0] - 1), pasos: v => '9×V(9,k−1) = 9×V(9,' + (v[0]-1) + ')' },
+  { id: 'nu_fij', t: 'Números de k cifras — termina en 1, sin repetir', campos: ['Cifras k'],
+    calc: v => 8 * perm(8, v[0] - 2), pasos: v => '8×V(8,k−2) = 8×V(8,' + (v[0]-2) + ')' },
+  { id: 'mc_lib', t: 'Mesa circular — libre', campos: ['Personas n'],
+    calc: v => fact(v[0]-1), pasos: v => '(n−1)!' },
+  { id: 'mc_blo', t: 'Mesa circular — bloque de k juntos', campos: ['Personas n','Bloque k'],
+    calc: v => fact(v[0]-v[1])*fact(v[1]), pasos: v => '(n−k+1) unidades en círculo → (n−k)! × k!' },
+  { id: 'terna', t: 'Terna de consecutivos — SUMA', campos: ['Primer número n'],
+    calc: v => v[0]+(v[0]+1)+(v[0]+2), pasos: v => 'n + (n+1) + (n+2) = 3(n+1)' },
+  { id: 'rect', t: 'Rectángulo — ÁREA', campos: ['Base','Altura'],
+    calc: v => v[0]*v[1], pasos: v => 'base × altura' },
+  { id: 'trap', t: 'Trapecio — ÁREA', campos: ['Base mayor B','Base menor b','Altura h'],
+    calc: v => (v[0]+v[1])*v[2]/2, pasos: v => '(B + b) × h / 2' },
+  { id: 'figsum', t: 'Suma de 2 rectángulos — ÁREA', campos: ['Ancho 1','Alto 1','Ancho 2','Alto 2'],
+    calc: v => v[0]*v[1]+v[2]*v[3], pasos: v => f2(v[0]*v[1]) + ' + ' + f2(v[2]*v[3]) },
+  { id: 'figmen', t: 'Rectángulo MENOS recorte — ÁREA', campos: ['Ancho total','Alto total','Ancho quitado','Alto quitado'],
+    calc: v => v[0]*v[1]-v[2]*v[3], pasos: v => f2(v[0]*v[1]) + ' − ' + f2(v[2]*v[3]) },
+];
+function vVerif(){
+  $('contenido').innerHTML =
+  '<div class="card"><h2>✅ Verificador de respuestas</h2>' +
+  '<div class="d">Resolvé el ejercicio a mano y cargá acá los datos + <b>tu resultado</b>. La app calcula el valor correcto y te confirma. Acepta un margen de redondeo de ~0,5%.</div>' +
+  '<label>Tipo de ejercicio</label><select id="vf_tipo">' +
+  TIPOS.map(t => '<option value="' + t.id + '">' + t.t + '</option>').join('') + '</select>' +
+  '<div id="vf_campos"></div>' +
+  '<div class="row" style="margin-top:6px"><div><label>Tu respuesta (la resolviste a mano)</label><input type="number" id="vf_tuya"></div></div>' +
+  '<div style="margin-top:12px"><button class="btn" id="bVf">Verificar</button></div>' +
+  '<div class="res" id="rVf" style="display:none"></div></div>';
+  const cargarCampos = () => {
+    const t = TIPOS.find(x => x.id === $('vf_tipo').value);
+    $('vf_campos').innerHTML = '<div class="row" style="margin-top:4px">' + t.campos.map((c, i) =>
+      '<div><label>' + c + '</label><input type="number" id="vf_c' + i + '"></div>').join('') + '</div>';
+    $('rVf').style.display = 'none';
+  };
+  $('vf_tipo').onchange = cargarCampos; cargarCampos();
+  $('bVf').onclick = () => {
+    const t = TIPOS.find(x => x.id === $('vf_tipo').value);
+    const v = t.campos.map((c, i) => n2('vf_c' + i));
+    if (v.some(x => x <= 0)) return mostrar('rVf', 'Completá todos los datos del ejercicio.');
+    const tuya = n2('vf_tuya');
+    if (!$('vf_tuya').value) return mostrar('rVf', 'Escribí tu respuesta (la que calculaste a mano).');
+    let correcto;
+    try { correcto = t.calc(v); } catch (e) { return mostrar('rVf', '<b class="er">Datos inválidos:</b> ' + e.message); }
+    if (isNaN(correcto) || !isFinite(correcto)) return mostrar('rVf', '<b class="er">Con esos datos el ejercicio no tiene solución</b> (ej.: k > n en variaciones, o lados que no forman triángulo).');
+    const tol = Math.max(0.02, Math.abs(correcto) * 0.005);
+    const ok = Math.abs(tuya - correcto) <= tol;
+    mostrar('rVf',
+      (ok ? '<b class="ok" style="font-size:16px">✓ ¡Correcto!</b> Tu respuesta (' + f2(tuya) + ') coincide.' :
+            '<b class="er" style="font-size:16px">✗ Incorrecto.</b> Vos obtuviste <b>' + f2(tuya) + '</b> y el valor correcto es <b class="ok">' + f2(correcto) + '</b>.') +
+      '<div class="paso" style="margin-top:8px">Desarrollo: <b>' + t.pasos(v) + ' = ' + f2(correcto) + '</b></div>' +
+      (ok ? '' : '<div class="paso">Revisá el paso a paso arriba y buscá dónde se desvió tu cálculo.</div>'));
+  };
+}
+
+const VISTAS = { figuras: vFiguras, cuadricula: vCuadricula, conjuntos: vConjuntos, conteo: vConteo, circular: vCircular, ternas: vTernas, verif: vVerif };
+pintar();
+</script>
+</body>
+</html>
